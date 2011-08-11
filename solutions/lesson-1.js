@@ -7,17 +7,21 @@ function cdr(exp) {
     return exp.slice(1) }
 
 
-function operator(exp) {
-    return eval(car(exp)) }
+function operator(exp, env) {
+    return evaluate(car(exp), env) }
 
 
-function operands(exp) {
-    return cdr(exp).map(eval) }
-
+function operands(exp, env) {
+    return cdr(exp).map(function(operand){
+        return evaluate(operand, env)})}
 
 
 function stringify(exp) {
     return JSON.stringify(exp) }
+
+
+function error(msg) {
+    throw new Error(msg) }
 
 
 var __slice = [].slice
@@ -35,9 +39,10 @@ function fold(seq, fn, start) {
 
 //// Evaluation ////////////////////////////////////////////////////////////////
 function evaluate(exp, env) {
-    return numberp(exp)?      eval_number(exp)
-    :  applicablep(exp)?  apply_procedure( operator(exp, env)
-                                         , operands(exp, env))
+    return numberp(exp)?         eval_number(exp)
+    :  variablep(exp, env)?  resolve(exp, env)
+    :  applicablep(exp)?     apply_procedure( operator(exp, env)
+                                            , operands(exp, env))
     :  error('Unsure how to handle the expression: ' + stringify(exp)) }
 
 function numberp(exp) {
@@ -48,12 +53,20 @@ function applicablep(exp) {
     return Array.isArray(exp) }
 
 
+function variablep(exp, env) {
+    return exp in env }
+
+
 function eval_number(exp) {
     return +exp }
 
 
 function apply_procedure(operator, operands) {
     return operator.apply(this, operands) }
+
+
+function resolve(exp, env) {
+    return env[exp] }
 
 
 //// Environment handling //////////////////////////////////////////////////////
@@ -114,3 +127,13 @@ define('/', function() {
 //   1 + 3 -> ["+", "1", "3"]
 
 
+
+//// Tests /////////////////////////////////////////////////////////////////////
+function test(program, result) {
+    var passed = evaluate(program, environment) === result
+    console.log(passed?  '[OK]  ' : '[FAIL]', stringify(program)) }
+
+test(['+', '1', '3'], 4)
+test(['+', ['+', '1', '4'], ['-', '7', '2']], 10)
+test(['*', '2', '2'], 4)
+test(['/', '4', '2'], 2)
