@@ -41,10 +41,10 @@ function fold(seq, fn, start) {
 //// Evaluation ////////////////////////////////////////////////////////////////
 // Evaluates the expression in the given environment
 function evaluate(exp, env) {
-    return numberp(exp)?         eval_number(exp)
+    return numberp(exp)?    eval_number(exp)
     : variablep(exp, env)?  resolve(exp, env)
     : applicablep(exp)?     apply_procedure( operator(exp, env)
-                                            , operands(exp, env))
+                                           , operands(exp, env))
     : error('Unsure how to handle the expression: ' + stringify(exp)) }
 
 // Checks if the expression is a number
@@ -155,19 +155,20 @@ define('/', function() {
 //
 function Parser() { }
 Parser.prototype = function() {
-    return { constructor: Parser
-      , parse: parse
-      , parse_program: parse_program
-      , parse_expression: parse_expression
-      , parse_application: parse_application
-      , parse_number: parse_number
-      , parse_operator: parse_operator
-      , parse_parameters: parse_parameters
-      , build: build
-      , save: save
-      , restore: restore
-      , match: match
-      , current: current }
+    return { constructor       : Parser
+           , parse             : parse
+           , parse_program     : parse_program
+           , parse_expression  : parse_expression
+           , parse_application : parse_application
+           , parse_number      : parse_number
+           , parse_operator    : parse_operator
+           , parse_parameters  : parse_parameters
+           , build             : build
+           , save              : save
+           , restore           : restore
+           , match             : match
+           , current           : current }
+
 
     function parse(code) {
         this.input = code.trim()
@@ -179,7 +180,7 @@ Parser.prototype = function() {
 
     function value(ast) {
         return ast && ast.length?  ast
-        :                    null }
+        :                          null }
 
 
     function parse_program() { var thing, ast
@@ -192,47 +193,47 @@ Parser.prototype = function() {
 
     function parse_expression() {
         return this.parse_application()
-        || this.parse_number()
-        || this.parse_operator() }
+        ||     this.parse_number()
+        ||     this.parse_operator() }
 
 
     function parse_application() {
         return nest(this.build( this.match(/^\s*\(/)
-                     , ignore(/^\s*\(/)
-                     , this.parse_operator.bind(this)
-                     , this.parse_parameters.bind(this)
-                     , ignore(/^\s*\)/))) }
+                              , ignore(/^\s*\(/)
+                              , this.parse_operator.bind(this)
+                              , this.parse_parameters.bind(this)
+                              , ignore(/^\s*\)/))) }
 
 
     function parse_number() {
         return this.build( this.match(/^\s*[-+]?\d/)
-                , ignore(/^\s*/)
-                , require(/^[-+]?\d+(?:\.\d+)?/, 'Number')) }
+                         , ignore(/^\s*/)
+                         , require(/^[-+]?\d+(?:\.\d+)?/, 'Number')) }
 
 
     function parse_operator() {
         return this.build( this.match(/^\s*[-+\/*]/)
-                , ignore(/^\s*/)
-                , require(/^[-+\/*]/, 'Operator')) }
+                         , ignore(/^\s*/)
+                         , require(/^[-+\/*]/, 'Operator')) }
 
 
     function parse_parameters() {
         return this.build( this.match(/^\s*[^\)]/)
-                , ignore(/^\s+/)
-                , nest(this.parse_expression.bind(this))
-                , this.parse_parameters.bind(this)) }
+                         , ignore(/^\s+/)
+                         , nest(this.parse_expression.bind(this))
+                         , this.parse_parameters.bind(this)) }
 
 
     function build(test) { var rules
         rules = __slice.call(arguments, 1)
         this.save()
         if (test)
-            return rules.map(function(rule){
-                       return rule(this) }, this)
-                   .reduce(function(acc, ast){
-                       if (ast && ast.nest)  acc.push(ast)
-                       else if (ast)        acc = acc.concat(ast)
-                       return acc }, [])
+            return rules.map(function(rule){ return rule(this) }, this)
+                        .reduce(function(acc, ast){
+                             if      (ast && ast.nest)  acc.push(ast)
+                             else if (ast)              acc = acc.concat(ast)
+                             return acc }, [])
+
         this.restore() }
 
 
