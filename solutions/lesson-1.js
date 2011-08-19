@@ -42,10 +42,10 @@ function fold(seq, fn, start) {
 // Evaluates the expression in the given environment
 function evaluate(exp, env) {
     return numberp(exp)?         eval_number(exp)
-    :  variablep(exp, env)?  resolve(exp, env)
-    :  applicablep(exp)?     apply_procedure( operator(exp, env)
+    : variablep(exp, env)?  resolve(exp, env)
+    : applicablep(exp)?     apply_procedure( operator(exp, env)
                                             , operands(exp, env))
-    :  error('Unsure how to handle the expression: ' + stringify(exp)) }
+    : error('Unsure how to handle the expression: ' + stringify(exp)) }
 
 // Checks if the expression is a number
 function numberp(exp) {
@@ -131,16 +131,192 @@ define('/', function() {
 //
 //   1 + 3 -> ["+", "1", "3"]
 //
+//
+// I actually choose S-exps <3 The BNF is as follows:
+//
+// program ::= <expression>*
+//
+// expression ::= <application>
+//              | <number>
+//              | <operator>
+//
+// application ::= "(" <expression> [WHITESPACE <expression>] ")"
+//
+// number ::= [<sign>] <digit>+ ["." <digit>+]
+//
+// sign ::= "-" | "+"
+//
+// digit ::= "0" .. "9"
+//
+// operator ::= "+"
+//            | "-"
+//            | "/"
+//            | "*"
+//
+function Parser() { }
+Parser.prototype = function() {
+    return { constructor: Parser
+      , parse: parse
+      , parse_program: parse_program
+      , parse_expression: parse_expression
+      , parse_application: parse_application
+      , parse_number: parse_number
+      , parse_operator: parse_operator
+      , parse_parameters: parse_parameters
+      , build: build
+      , save: save
+      , restore: restore
+      , match: match
+      , current: current }
 
+    function parse(code) {
+        this.input = code.trim()
+        this.index = 0
+        this.state = []
+
+        return this.parse_program() }
+
+
+    function value(ast) {
+        return ast && ast.length?  ast
+        :                    null }
+
+
+    function parse_program() { var thing, ast
+        ast = []
+        while (thing = this.parse_expression())
+            ast = ast.concat(thing)
+
+        return value(ast) }
+
+
+    function parse_expression() {
+        return this.parse_application()
+        || this.parse_number()
+        || this.parse_operator() }
+
+
+    function parse_application() {
+        return nest(this.build( this.match(/^\s*\(/)
+                     , ignore(/^\s*\(/)
+                     , this.parse_operator.bind(this)
+                     , this.parse_parameters.bind(this)
+                     , ignore(/^\s*\)/))) }
+
+
+    function parse_number() {
+        return this.build( this.match(/^\s*[-+]?\d/)
+                , ignore(/^\s*/)
+                , require(/^[-+]?\d+(?:\.\d+)?/, 'Number')) }
+
+
+    function parse_operator() {
+        return this.build( this.match(/^\s*[-+\/*]/)
+                , ignore(/^\s*/)
+                , require(/^[-+\/*]/, 'Operator')) }
+
+
+    function parse_parameters() {
+        return this.build( this.match(/^\s*[^\)]/)
+                , ignore(/^\s+/)
+                , nest(this.parse_expression.bind(this))
+                , this.parse_parameters.bind(this)) }
+
+
+    function build(test) { var rules
+        rules = __slice.call(arguments, 1)
+        this.save()
+        if (test)
+            return rules.map(function(rule){
+                       return rule(this) }, this)
+                   .reduce(function(acc, ast){
+                       if (ast && ast.nest)  acc.push(ast)
+                       else if (ast)        acc = acc.concat(ast)
+                       return acc }, [])
+        this.restore() }
+
+
+    function save() {
+        this.state.push(this.index) }
+
+
+    function restore() {
+        this.index = this.state.pop() || 0 }
+
+
+    function match(re) {
+        return this.current().match(re) }
+
+
+    function current() {
+        return this.input.slice(this.index) }
+
+
+    function consume(re){ return function(ps) { var result
+        result = ps.match(re)
+        if (result) {
+            result    = result[0]
+            ps.index += result.length
+            return result }}}
+
+
+    function require(re, thing){ return function(ps){ var result
+        result = consume(re)(ps)
+        if (!result)  throw new Error("Expected " + thing || re)
+        return result }}
+
+
+    function ignore(re){ return function(ps) {
+        consume(re)(ps) }}
+
+
+    function nest(ast) {
+        if (ast)  ast.nest = true
+        return ast }
+}()
 
 
 
 //// Tests /////////////////////////////////////////////////////////////////////
-function test(program, result) {
-    var passed = evaluate(program, environment) === result
-    console.log(passed?  '[OK]  ' : '[FAIL]', stringify(program)) }
+// Tests a program evaluation against an expected result
+function test(program, expected) { var actual, passed
+    actual = evaluate(program, environment)
+    passed = actual === expected
+    console.log(passed?  '[OK]  ' : '[FAIL]', stringify(program)
+              + ' === ' + stringify(expected))
+    if (!passed)
+        console.log('\tExpected: ' + stringify(expected)
+                  + ', got: ' + stringify(actual)) }
+
+// Tests the program parser
+function testp(program) {
+    console.log('AST for ' + program + ': ', (new Parser).parse(program)) }
+
+
+// Testes the program parser and evaluation against an expected result
+function teste(program, expected) {
+    return test((new Parser).parse(program), expected) }
+
 
 test(['+', '1', '3'], 4)
 test(['+', ['+', '1', '4'], ['-', '7', '2']], 10)
 test(['*', '2', '2'], 4)
 test(['/', '4', '2'], 2)
+
+testp('1')
+testp('+34')
+testp('-345.23')
+testp('   -34.4')
+testp('+')
+testp('   /')
+testp('()')
+testp('(3 4 5)')
+testp('(+ 3 4 +34.34)')
+testp('(+ 3 (* 2 2) 4)')
+
+teste('(+ 1 3)', 4)
+teste('(+ (+ 1 4) (- 7 2))', 10)
+teste('(* 2 2)', 4)
+teste('(/ 4 2)', 2)
+teste('-34.4', -34.4)
+teste('(+3 (*2 2) 4)', 11)
