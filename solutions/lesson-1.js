@@ -300,8 +300,8 @@ Parser.prototype = function() {
 function test(program, expected) { var actual, passed
     actual = evaluate(program, environment)
     passed = actual === expected
-    console.log(passed?  '[OK]  ' : '[FAIL]', stringify(program)
-              + ' === ' + stringify(expected))
+    console.log( passed?  '[OK]  ' : '[FAIL]'
+               , stringify(program) + ' === ' + stringify(expected))
     if (!passed)
         console.log('\tExpected: ' + stringify(expected)
                   + ', got: ' + stringify(actual)) }
