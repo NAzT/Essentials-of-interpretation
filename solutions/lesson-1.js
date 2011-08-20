@@ -170,6 +170,7 @@ Parser.prototype = function() {
            , current           : current }
 
 
+    // Parses a valid program, returns an AST with the processed tokens
     function parse(code) {
         this.input = code.trim()
         this.index = 0
@@ -178,11 +179,13 @@ Parser.prototype = function() {
         return this.parse_program() }
 
 
+    // Returns the absolute value of an AST. Empty lists are converted to null
     function value(ast) {
         return ast && ast.length?  ast
         :                          null }
 
 
+    // Parses a series of expressions and returns a list of them
     function parse_program() { var thing, ast
         ast = []
         while (thing = this.parse_expression())
@@ -191,12 +194,14 @@ Parser.prototype = function() {
         return value(ast) }
 
 
+    // Parses a single <expression>
     function parse_expression() {
         return this.parse_application()
         ||     this.parse_number()
         ||     this.parse_operator() }
 
 
+    // Parses a function application, and make it nest-able
     function parse_application() {
         return nest(this.build( this.match(/^\s*\(/)
                               , ignore(/^\s*\(/)
@@ -205,18 +210,21 @@ Parser.prototype = function() {
                               , ignore(/^\s*\)/))) }
 
 
+    // Parses a self-evaluating number
     function parse_number() {
         return this.build( this.match(/^\s*[-+]?\d/)
                          , ignore(/^\s*/)
                          , require(/^[-+]?\d+(?:\.\d+)?/, 'Number')) }
 
 
+    // Parses an arithmetic operator
     function parse_operator() {
         return this.build( this.match(/^\s*[-+\/*]/)
                          , ignore(/^\s*/)
                          , require(/^[-+\/*]/, 'Operator')) }
 
 
+    // Parses a list of function parameters
     function parse_parameters() {
         return this.build( this.match(/^\s*[^\)]/)
                          , ignore(/^\s+/)
@@ -224,6 +232,7 @@ Parser.prototype = function() {
                          , this.parse_parameters.bind(this)) }
 
 
+    // Builds an AST from a list of matcher functions, if the predicate passes
     function build(test) { var rules
         rules = __slice.call(arguments, 1)
         this.save()
@@ -237,22 +246,27 @@ Parser.prototype = function() {
         this.restore() }
 
 
+    // Saves the current position of the parser
     function save() {
         this.state.push(this.index) }
 
 
+    // Goes back to the last stored position
     function restore() {
         this.index = this.state.pop() || 0 }
 
 
+    // Returns a regexp match starting at the current position in the input
     function match(re) {
         return this.current().match(re) }
 
 
+    // Returns the text starting at the current position in the input
     function current() {
         return this.input.slice(this.index) }
 
 
+    // Higher-order matcher that matches a regexp and updates the parser's position
     function consume(re){ return function(ps) { var result
         result = ps.match(re)
         if (result) {
@@ -261,16 +275,19 @@ Parser.prototype = function() {
             return result }}}
 
 
+    // Higher-order matcher that throws an error if a match is not found
     function require(re, thing){ return function(ps){ var result
         result = consume(re)(ps)
         if (!result)  throw new Error("Expected " + thing || re)
         return result }}
 
 
+    // Higher-order function that consumes a match but returns nothing
     function ignore(re){ return function(ps) {
         consume(re)(ps) }}
 
 
+    // Marks an AST to be nested when inserted inside another AST.
     function nest(ast) {
         if (ast)  ast.nest = true
         return ast }
